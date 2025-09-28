@@ -7,7 +7,7 @@ A starter kit for building a full-featured k6 API testing suite—just clone, fo
 We’ll grow this project together, step by step. Here’s our roadmap—each step designed to gently remind you how much more you have to do:
 
 1. Project scaffolding  
-   • Create a folder (e.g. `k6-api-demo`)  
+   • Create a folder (e.g. `k6-api-test`)  
    • `npm init` (optional) or just keep your .js scripts here  
    • Install k6 (locally or use the binary)  
    _(Because all great things start with an empty folder and mild existential dread.)_
