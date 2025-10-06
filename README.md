@@ -6,27 +6,27 @@ A starter kit for building a full-featured k6 API testing suite—just clone, fo
 
 We’ll grow this project together, step by step. Here’s our roadmap—each step designed to gently remind you how much more you have to do:
 
-1. Project scaffolding  
+1. Project scaffolding  ✅
    • Create a folder (e.g. `k6-api-demo`)  
    • `npm init` (optional) or just keep your .js scripts here  
    • Install k6 (locally or use the binary)  
    _(Because all great things start with an empty folder and mild existential dread.)_
 
-2. Minimal smoke test  
+2. Minimal smoke test  ✅
    • Write a single-file script that does an HTTP GET. (`/health` or `/status`)  
    • Add one `check` for HTTP 200  
    • Run: `k6 run smoke.js`  
    _(If it passes, throw yourself a tiny celebration. If it fails, start wondering about uptime.)_
 
-3. Add thresholds & sleep  
+3. Add thresholds & sleep  ✅
    • In `export let options` configure a simple response‐time threshold (e.g. `p(95)<500`)  
    • Insert a `sleep(1)` to mimic real pacing  
    • Verify pass/fail in the console summary  
    _(Because robots without sleep are sad, and developers without thresholds tend to panic.)_
 
-4. Environment variables & config  
+4. Environment variables & config  ✅
    • Replace hard‐coded URL (and later creds) with `__ENV.API_BASE`  
-   • Demonstrate `k6 run --env API_BASE=https://api.myapp.test smoke.js`  
+   • Demonstrate `k6 run --env API_BASE=https://jsonplaceholder.typicode.com smoke.js`  
    • Keeps secrets out of source  
    _(You want secrets in the environment, not in your personal shame folder—or git history.)_
 
@@ -34,7 +34,7 @@ We’ll grow this project together, step by step. Here’s our roadmap—each st
    • Implement a `setup()` function to POST for a token (Basic, OAuth, etc.)  
    • Return the token and consume it in your default function’s headers  
    • Validate a 200 from the auth endpoint  
-   _(Feel important when you fetch your first Bearer token.)_
+   _(Feel important when you fetch your first Bearer token—because nothing says “grown-up API testing” like a little authentication flex.)_
 
 6. Grouping & request chaining  
    • Use `group("Create → Read → Delete", …)` to show logical flow  
@@ -124,5 +124,4 @@ If you have ideas, find issues, or want to tweak the flow, please open an issue 
 
 This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
 
-Use it, share it, obsess over milliseconds—just don’t blame us if your API gets tired.
-```
+  _(Use it, share it, obsess over milliseconds—just don’t blame us if your API gets tired.)_

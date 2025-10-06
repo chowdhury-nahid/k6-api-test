@@ -1,0 +1,22 @@
+{
+  "environments": {
+    "local": {
+      "baseURL": "https://jsonplaceholder.typicode.com"
+    },
+    "dev": {
+      "baseURL": "https://jsonplaceholder.typicode.com",
+      "username": "devuser",
+      "password": "devpass"
+    },
+    "prod": {
+      "baseURL": "https://jsonplaceholder.typicode.com",
+      "username": "produser",
+      "password": "prodpass"
+    }
+  },
+  "testType": "smoke",
+  "runSettings": {
+    "vus": 1,
+    "duration": "10s"
+  }
+}
