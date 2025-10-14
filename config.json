@@ -1,17 +1,27 @@
 {
   "environments": {
-    "local": {
+    "jsonplaceholder": {
       "baseURL": "https://jsonplaceholder.typicode.com"
     },
-    "dev": {
-      "baseURL": "https://jsonplaceholder.typicode.com",
-      "username": "devuser",
-      "password": "devpass"
+    "restful-booker": {
+      "baseURL": "https://restful-booker.herokuapp.com"
+    }
+  },
+  "authProfiles": {
+    "none": {},
+    "smokeAuth": {
+      "username": "admin",
+      "password": "password123"
+    }
+  },
+  "testProfiles": {
+    "smoke": {
+      "env": "jsonplaceholder",
+      "auth": "none"
     },
-    "prod": {
-      "baseURL": "https://jsonplaceholder.typicode.com",
-      "username": "produser",
-      "password": "prodpass"
+    "auth_smoke": {
+      "env": "restful-booker",
+      "auth": "smokeAuth"
     }
   },
   "testType": "smoke",

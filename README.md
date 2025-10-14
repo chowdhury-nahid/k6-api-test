@@ -30,7 +30,7 @@ We’ll grow this project together, step by step. Here’s our roadmap—each st
    • Keeps secrets out of source  
    _(You want secrets in the environment, not in your personal shame folder—or git history.)_
 
-5. Authentication via setup()  
+5. Authentication via setup()  ✅
    • Implement a `setup()` function to POST for a token (Basic, OAuth, etc.)  
    • Return the token and consume it in your default function’s headers  
    • Validate a 200 from the auth endpoint  
@@ -95,30 +95,53 @@ We’ll grow this project together, step by step. Here’s our roadmap—each st
 
 ---
 
-## Getting Started
+## Project Structure 📁
+```
+k6-api-test/
+├── lib/
+│   └── env.js           # Environment & config management
+├── smoke.js            # JSONPlaceholder API tests
+├── auth_smoke.js       # Restful-Booker auth tests
+└── config.json         # Environment & test configs
+```
 
-### Prerequisites
+## Test Profiles
 
-- [k6](https://k6.io/docs/getting-started/installation) installed  
-- (Optional) Node.js/npm if you plan to pull in extra scripts or packages  
-  _(Or anything else your IT department thinks you need.)_
-
-### Quick Setup
-
-```bash
-git clone https://github.com/chowdhury-nahid/k6-api-test.git
-cd k6-api-test
-# ensure you’re on main
-git checkout main
-
-# 1) Run the smoke test
+### Smoke Test (Default)
+- Uses JSONPlaceholder API (https://jsonplaceholder.typicode.com)
+- No authentication required
+- Tests GET and POST endpoints
+```powershell
 k6 run smoke.js
+```
 
-As you tick off each item in the roadmap, you’ll add or refine scripts here until you’ve got a production-grade API test suite.
+### Auth Smoke Test
+- Uses Restful-Booker API (https://restful-booker.herokuapp.com)
+- Requires authentication
+- Tests authenticated endpoints
+```powershell
+k6 run --env TEST_TYPE=auth_smoke auth_smoke.js
+```
 
-## Contributing & Questions
+## Configuration
 
-If you have ideas, find issues, or want to tweak the flow, please open an issue or send a pull request. For quick questions, reach out at your.email@domain.com.
+Available environment variables:
+- `API_BASE`: Override API base URL
+- `USERNAME`: Auth username
+- `PASSWORD`: Auth password
+- `TEST_TYPE`: Test profile to run ('smoke' or 'auth_smoke')
+
+Example with overrides:
+```powershell
+k6 run --env API_BASE=https://api.example.com --env USERNAME=user --env PASSWORD=pass auth_smoke.js
+```
+
+## Performance Thresholds
+- HTTP errors < 5%
+- Checks pass rate > 95%
+- Response times:
+  - p95 < 1000ms
+  - p99 < 1200ms
 
 ## License
 
