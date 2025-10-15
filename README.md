@@ -36,7 +36,7 @@ We’ll grow this project together, step by step. Here’s our roadmap—each st
    • Validate a 200 from the auth endpoint  
    _(Feel important when you fetch your first Bearer token—because nothing says “grown-up API testing” like a little authentication flex.)_
 
-6. Grouping & request chaining  
+6. Grouping & request chaining  ✅
    • Use `group("Create → Read → Delete", …)` to show logical flow  
    • POST a new resource, grab its ID, GET it back, then DELETE it  
    • Add `check()`s on each call’s status code and JSON payload  
