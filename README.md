@@ -42,13 +42,24 @@ We’ll grow this project together, step by step. Here’s our roadmap—each st
    • Add `check()`s on each call’s status code and JSON payload  
    _(Because testing CRUD operations is the API tester's equivalent of eating your vegetables.)_
 
-7. Parameterize & data‐drive  
+7. Parameterize & data‐drive   ✅
    • Create a small JSON/CSV file with test data (names, payload variants)  
    • In the script, load it once in `setup()` or at top level  
    • Cycle through records in each VU so you can demo multiple scenarios  
    _(Let the data drive your insanity and your test logic.)_
 
-8. Load profile & stages  
+   Example usage in this repo:
+
+   - Data file: `./data/test_data.json` (sample records included).
+   - `auth_smoke.js` loads this in `setup()` and passes `testData` to each VU.
+   - Each VU picks a record based on `__VU` and `__ITER` so scenarios vary per VU/iteration.
+
+   Run the auth smoke test (uses data-driven names/payloads):
+   ```bash
+   k6 run --env TEST_TYPE=auth_smoke auth_smoke.js
+   ```
+
+8. Load profile & stages    ✅
    • In `options`, define  
      ```js
      stages: [
@@ -133,8 +144,29 @@ Available environment variables:
 
 Example with overrides:
 ```powershell
-k6 run --env API_BASE=https://api.example.com --env USERNAME=user --env PASSWORD=pass auth_smoke.js
+k6 run --env API_BASE=https://restful-booker.herokuapp.com --env USERNAME=admin --env PASSWORD=password123 auth_smoke.js
 ```
+
+**Stage profiles & CI**
+
+- Central stage profiles are defined in `config.json` under `stageProfiles` (for example `local-smoke`, `ci-load`, and `spike`).
+ - Central stage profiles are defined in `config.json` under `stageProfiles`.
+    Available profiles in this repo:
+    - `local-smoke` — minimal run for local development (1 VU, 30s)
+    - `ci-load`     — CI-friendly ramp → steady → ramp-down (20 VUs steady)
+    - `spike`       — short spike test (50 VUs short burst)
+- Choose a profile at runtime with the `STAGE_PROFILE` env var, or override with `VUS`/`DURATION` for quick ad-hoc runs.
+
+Examples:
+```bash
+# Use the centralized CI load profile
+k6 run --env STAGE_PROFILE=ci-load --env API_BASE=https://restful-booker.herokuapp.com --env USERNAME=admin --env PASSWORD=password123 auth_smoke.js
+
+# Override directly (quick constant VUs)
+k6 run --env VUS=20 --env DURATION=2m --env API_BASE=https://restful-booker.herokuapp.com auth_smoke.js
+```
+
+- CI integration: this repository includes a sample GitHub Actions workflow at `.github/workflows/k6-ci.yml` that runs `auth_smoke.js` using the `ci-load` profile and uploads the `summary.json` artifact for later inspection. Adjust credentials and endpoint using repository secrets for private targets.
 
 ## Performance Thresholds
 - HTTP errors < 5%

@@ -1,0 +1,44 @@
+[
+  {
+    "firstname": "Alice",
+    "lastname": "Anderson",
+    "additionalneeds": "Breakfast",
+    "minPrice": 100,
+    "maxPrice": 300
+  },
+  {
+    "firstname": "Bob",
+    "lastname": "Brown",
+    "additionalneeds": "Late Checkout",
+    "minPrice": 150,
+    "maxPrice": 500
+  },
+  {
+    "firstname": "Carol",
+    "lastname": "Clark",
+    "additionalneeds": "Breakfast and Parking",
+    "minPrice": 200,
+    "maxPrice": 800
+  },
+  {
+    "firstname": "Dan",
+    "lastname": "Dawson",
+    "additionalneeds": "None",
+    "minPrice": 50,
+    "maxPrice": 200
+  },
+  {
+    "firstname": "Eve",
+    "lastname": "Evans",
+    "additionalneeds": "Breakfast and Dinner",
+    "minPrice": 300,
+    "maxPrice": 1200
+  },
+  {
+    "firstname": "Frank",
+    "lastname": "Foster",
+    "additionalneeds": "Vegetarian Meal",
+    "minPrice": 120,
+    "maxPrice": 450
+  }
+]

@@ -1,18 +1,30 @@
 import { randomIntBetween } from 'https://jslib.k6.io/k6-utils/1.2.0/index.js';
 import { check, sleep } from 'k6';
 import http from 'k6/http';
-import { getBaseURL, requireCredentials } from './lib/env.js';
+import { getBaseURL, requireCredentials, getStageOptions } from './lib/env.js';
+import { Trend, Counter } from 'k6/metrics';
 
-export const options = {
+const baseOptions = {
   thresholds: {
     'checks': ['rate>0.95'],
     'http_req_failed': ['rate<0.05'],
     'http_req_duration': ['p(95)<1000', 'p(99)<1200'],
+    // Custom metric thresholds
+    'request_duration_ms': ['p(95)<1000'],
+    'errors': ['count<1']
   },
-  stages: [
-    { duration: '2s', target: 20 },
-  ],
 };
+
+// Merge central stage/profile options (stages or vus/duration) with script-specific options
+export const options = Object.assign({}, baseOptions, getStageOptions());
+
+// Load test data at init time. `open()` is only available at module init/global scope.
+let TEST_DATA = null;
+try {
+  TEST_DATA = JSON.parse(open('./data/test_data.json'));
+} catch (e) {
+  console.error('Failed to load test data at init:', e);
+}
 
 // Helper function for random future dates
 function getRandomFutureDate(startDays = 1, endDays = 365) {
@@ -24,9 +36,32 @@ function getRandomFutureDate(startDays = 1, endDays = 365) {
   return randomDate.toISOString().split('T')[0];
 }
 
+// Safe JSON parser helper: avoids throwing when response is not JSON
+function safeJson(res) {
+  try {
+    return res && res.body ? res.json() : null;
+  } catch (e) {
+    console.error('Failed to parse JSON (truncated):', res && res.body ? res.body.slice(0,512) : '<no body>');
+    return null;
+  }
+}
+
 export function setup() {
   const baseURL = getBaseURL();
   const { username, password } = requireCredentials();
+
+  // Preflight: verify baseURL is a JSON API we expect (helps catch example.com or HTML error pages)
+  try {
+    const preflightRes = http.get(`${baseURL}/booking`, { headers: { 'Accept': 'application/json' }, timeout: 10000 });
+    recordMetrics(preflightRes);
+    const preflightCT = (preflightRes.headers['Content-Type'] || preflightRes.headers['content-type'] || '').toLowerCase();
+    if (preflightRes.status !== 200 || !preflightCT.includes('json')) {
+      console.error('Preflight check failed: expected JSON 200 from /booking. status=', preflightRes.status, 'content-type=', preflightCT, 'body=', preflightRes.body ? preflightRes.body.slice(0,512) : '<no body>');
+      throw new Error(`Preflight failed: ${baseURL} did not return expected JSON for /booking. Make sure --env API_BASE points to a Restful-Booker compatible URL (e.g. https://restful-booker.herokuapp.com)`);
+    }
+  } catch (e) {
+    throw new Error(`Failed preflight check for ${baseURL}/booking: ${e.message || e}`);
+  }
 
   // Authenticate and get token
   const loginRes = http.post(
@@ -34,43 +69,104 @@ export function setup() {
     JSON.stringify({ username, password }),
     { headers: { 'Content-Type': 'application/json' } }
   );
+  recordMetrics(loginRes);
+
+  // Be defensive: some endpoints (or misconfigured API_BASE) return HTML/XML
+  // instead of JSON which will cause `r.json()` to throw. Parse safely.
+  let authJson = null;
+  try {
+    if (loginRes && loginRes.body) {
+      // Only attempt to parse if response Content-Type looks like JSON
+      const contentType = (loginRes.headers['Content-Type'] || loginRes.headers['content-type'] || '').toLowerCase();
+      if (contentType.includes('application/json') || contentType.includes('json')) {
+        authJson = loginRes.json();
+      } else {
+        // Attempt parse anyway inside try/catch for leniency
+        try {
+          authJson = loginRes.json();
+        } catch (e) {
+          console.error('Auth endpoint returned non-JSON content. Response body (truncated):', loginRes.body.slice(0, 512));
+        }
+      }
+    }
+  } catch (e) {
+    console.error('Failed to parse auth response as JSON:', e, 'Response body (truncated):', loginRes && loginRes.body ? loginRes.body.slice(0, 512) : '<no body>');
+  }
 
   check(loginRes, {
     'auth status is 200': (r) => r.status === 200,
-    'auth returns token': (r) => r.json().token !== undefined,
+    'auth returns token': (r) => !!(authJson && authJson.token),
   });
 
-  const token = loginRes.json().token;
+  const token = authJson && authJson.token;
   if (!token) {
-    throw new Error('Authentication failed - no token received');
+    // Provide actionable error so the user can see what went wrong instead of a cryptic parse error
+    throw new Error(`Authentication failed - no token received. status=${loginRes.status} body=${(loginRes && loginRes.body) ? loginRes.body.slice(0,512) : '<no body>'}`);
   }
 
   // Get initial booking IDs
-  const bookingsRes = http.get(`${baseURL}/booking`);
-  const bookingIds = bookingsRes.json().map(b => b.bookingid);
+    const bookingsRes = http.get(`${baseURL}/booking`);
+    recordMetrics(bookingsRes);
+  // Guard: ensure we got an array back before mapping booking IDs
+  let bookingIds = [];
+  try {
+    const bookingsBody = safeJson(bookingsRes);
+    if (Array.isArray(bookingsBody)) {
+      bookingIds = bookingsBody.map(b => b.bookingid);
+    } else {
+      console.error('/booking did not return an array; response type:', typeof bookingsBody, 'value (truncated):', bookingsRes && bookingsRes.body ? bookingsRes.body.slice(0,512) : '<no body>');
+    }
+  } catch (e) {
+    console.error('Failed to extract booking IDs:', e);
+  }
 
   return {
     baseURL,
     token,    // Pass token through setup data
-    bookingIds
+    bookingIds,
+    testData: Array.isArray(TEST_DATA) && TEST_DATA.length ? TEST_DATA : null
   };
 }
 
 export default function (data) {
   const baseURL = data.baseURL;
   const token = data.token;  // Get token from setup data
+  const testData = Array.isArray(data.testData) && data.testData.length ? data.testData : null;
 
   // 1. Create new booking
   const checkin = getRandomFutureDate(1, 30);
   const checkout = getRandomFutureDate(31, 60);
   
+  // Choose a data-driven record if available; otherwise fall back to random values
+  let firstname = `FirstName_${randomIntBetween(1000, 9999)}`;
+  let lastname = `LastName_${randomIntBetween(1000, 9999)}`;
+  let additionalneeds = 'Breakfast';
+  let totalprice = randomIntBetween(100, 1000);
+
+  if (testData) {
+    // __VU and __ITER are globals provided by k6 at runtime
+    const vu = typeof __VU !== 'undefined' ? __VU : 1;
+    const iter = typeof __ITER !== 'undefined' ? __ITER : 0;
+    const idx = ((vu - 1) + iter) % testData.length;
+    const record = testData[idx];
+
+    firstname = record.firstname || firstname;
+    lastname = record.lastname || lastname;
+    additionalneeds = record.additionalneeds || additionalneeds;
+    if (record.minPrice || record.maxPrice) {
+      const minP = record.minPrice || 50;
+      const maxP = record.maxPrice || (minP + 500);
+      totalprice = randomIntBetween(minP, maxP);
+    }
+  }
+
   const newBooking = {
-    firstname: `FirstName_${randomIntBetween(1000, 9999)}`,
-    lastname: `LastName_${randomIntBetween(1000, 9999)}`,
-    totalprice: randomIntBetween(100, 1000),
+    firstname,
+    lastname,
+    totalprice,
     depositpaid: true,
     bookingdates: { checkin, checkout },
-    additionalneeds: 'Breakfast'
+    additionalneeds
   };
 
   // Create booking
@@ -84,6 +180,7 @@ export default function (data) {
       }
     }
   );
+  recordMetrics(createRes);
 
   // Validate creation
   const bookingCreated = check(createRes, {
@@ -117,6 +214,7 @@ export default function (data) {
       }
     }
   );
+  recordMetrics(getNewRes);
 
   check(getNewRes, {
     'Get new booking status is 200': (r) => r.status === 200,
@@ -161,6 +259,7 @@ export default function (data) {
       }
     }
   );
+  recordMetrics(updateRes);
 
   check(updateRes, {
     'Update booking status is 200': (r) => {
@@ -185,6 +284,8 @@ export default function (data) {
         }
       }
     );
+
+    recordMetrics(getUpdatedRes);
 
     check(getUpdatedRes, {
       'Updated booking matches': (r) => {
@@ -215,10 +316,26 @@ const deleteRes = http.del(
   }
 );
 
+recordMetrics(deleteRes);
+
 check(deleteRes, {
   'Delete booking status is 201': (r) => r.status === 201
 });
 
 
   sleep(1); // Simulate user think time
+}
+
+// Custom metrics
+const requestDuration = new Trend('request_duration_ms');
+const errors = new Counter('errors');
+
+function recordMetrics(res) {
+  if (!res) {
+    errors.add(1);
+    return;
+  }
+  const dur = res.timings && typeof res.timings.duration === 'number' ? res.timings.duration : null;
+  if (dur !== null) requestDuration.add(dur);
+  if (res.status >= 400) errors.add(1);
 }

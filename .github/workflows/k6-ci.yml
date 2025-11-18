@@ -1,0 +1,40 @@
+name: k6 CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  k6-run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install k6
+        run: |
+          # Install k6 on Ubuntu runner
+          sudo apt-get update
+          sudo apt-get install -y gnupg2 curl
+          curl -s https://dl.k6.io/key.gpg | sudo gpg --dearmor -o /usr/share/keyrings/k6-archive-keyring.gpg
+          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update
+          sudo apt-get install -y k6
+
+      - name: Run k6 (ci-load profile)
+        run: |
+          # Use secret-provided values if set; otherwise fallback to public demo endpoint
+          API_BASE=${{ secrets.API_BASE || 'https://restful-booker.herokuapp.com' }}
+          USERNAME=${{ secrets.USERNAME || 'admin' }}
+          PASSWORD=${{ secrets.PASSWORD || 'password123' }}
+
+          # Run k6 and export summary.json. k6 exits with non-zero when thresholds fail.
+          k6 run --summary-export=summary.json --env STAGE_PROFILE=ci-load --env API_BASE="$API_BASE" --env USERNAME="$USERNAME" --env PASSWORD="$PASSWORD" auth_smoke.js
+
+      - name: Upload k6 summary
+        uses: actions/upload-artifact@v4
+        with:
+          name: k6-summary
+          path: summary.json
